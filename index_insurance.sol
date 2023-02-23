@@ -43,9 +43,14 @@ contract DroughtInsurance {
 
   }
 
-  // Setting Premium in case of risk increase/decrease
+  // Setting Premium in case of risk increase/decrease (only SC owner should be able to do it)
   function setPremium(uint newPremium) public {
     premium = newPremium;
+  }
+  
+  // Setting Payout in case of risk increase/decrease (only SC owner should be able to do it)
+  function setPayout(uint newPayout) public {
+    payout = newPayout;
   }
 
   // Claim
