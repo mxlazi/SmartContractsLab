@@ -2,16 +2,16 @@
 pragma solidity ^0.8.0;
 
 // Importing the Oracle contract
-import "./IndexOracle.sol"; // maybe interaction with contract instance is better
+import "./IndexOracle.sol"; // maybe interaction with contract instance is better ??
 
 // Creating the DroughtInsurance contract
 contract DroughtInsurance {
 
   // Defining the variables
-  uint public premium;
-  uint public payout;
+  uint public premium; // in wei ??
+  uint public payout; // in wei ?? // change variable name to more comprehensible one
   uint public indexThreshold;
-  address public oracle;
+  address public oracle; // create simple oracle with settable index data for different regions
   address public creator;
 
   struct Farmer {
@@ -21,8 +21,8 @@ contract DroughtInsurance {
     address farmerAccount;
     }
 
-  Farmer[] public farmers;
-  mapping (uint => address) public obligationToFarmer;
+  // Mapping to map Farmer to available, claimable amount (aka obligation)
+  mapping (Farmer => uint) public farmerToObligation;
 
   // Initializing the contract and setting the variables
   constructor(uint _premium, uint _payout, uint _indexThreshold, address _oracleAddress) {
@@ -33,15 +33,14 @@ contract DroughtInsurance {
     creator = msg.sender;
   }
 
-  // farmer registration
+  // farmer registration, adds farmer structure to mapping with claimable amount (aka obligation)
   function _register(string _firstName, string _lastName, uint _region) internal {
-    farmers.push(Farmer(_firstName, _lastName, _region, msg.sender));
+    farmerToObligation[Farmer(_firstName, _lastName, _region, msg.sender)] = 0;
   }
 
   // Creating the function to check if a drought has occurred
+  // This function is absolute shit. Please work on this.
   function checkDrought() public view returns(bool) {
-    for (uint day = 0; day < minimumDays; i++) {
-      }
     uint index = oracle.getIndex();
     if (index < indexThreshold) {
       return true;
@@ -50,10 +49,11 @@ contract DroughtInsurance {
     }
   }
 
-  // Creating the function to buy the insurance (only purchasable the year before)
+  // Creating the function to buy the insurance
+  // There should be a time constraint: only purchasble the year before
   function buyInsurance() public payable {
     require(msg.value == premium, "Incorrect premium amount.");
-    obligationToFarmer[msg.sender] = msg.value;
+    farmerToObligation[msg.sender] = payout; // payout == claimable amount (aka obligation)
   }
 
   // Setting Premium in case of risk increase/decrease (only SC owner should be able to do it)
@@ -70,7 +70,7 @@ contract DroughtInsurance {
 
   // Claim
   function claim(uint amount) public {
-    require(obligationToFarmer[msg.sender] >= amount, "Your obligation is too low.");
+    require(obligationToFarmer[msg.sender] >= amount, "Your claimable amount is too low.");
     // Checking if a drought has occurred
     bool isDrought = checkDrought();
 
