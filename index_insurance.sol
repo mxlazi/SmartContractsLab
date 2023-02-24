@@ -70,6 +70,7 @@ contract DroughtInsurance {
 
   // Claim
   function claim(uint amount) public {
+    require(obligationToFarmer[msg.sender] >= amount, "Your obligation is too low.");
     // Checking if a drought has occurred
     bool isDrought = checkDrought();
 
