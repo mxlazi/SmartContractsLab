@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 // Importing the Oracle contract
-import "./IndexOracle.sol"; // maybe interaction with contract instance is better ??
+// import "./IndexOracle.sol"; // maybe interaction with contract instance is better ??
 
 // Creating the DroughtInsurance contract
 contract DroughtInsurance {
@@ -10,9 +10,11 @@ contract DroughtInsurance {
   // Defining the variables
   uint public premium; // in wei ??
   uint public payout; // in wei ?? // change variable name to more comprehensible one
-  uint public indexThreshold;
+  int public indexThreshold;
+  int public index;
   address public oracle; // create simple oracle with settable index data for different regions
   address public creator;
+  Farmer public newFarmer;
 
   struct Farmer {
     string firstName;
@@ -21,11 +23,13 @@ contract DroughtInsurance {
     address farmerAccount;
     }
 
-  // Mapping to map Farmer to available, claimable amount (aka obligation)
-  mapping (Farmer => uint) public farmerToObligation;
+  // Mapping: map Farmer to available, claimable amount (aka obligation)
+  mapping (address => uint) public farmerToObligation;
+  // Mapping for future obligations
+  mapping (address => uint) public farmerToFutureObligation;
 
   // Initializing the contract and setting the variables
-  constructor(uint _premium, uint _payout, uint _indexThreshold, address _oracleAddress) {
+  constructor(uint _premium, uint _payout, int _indexThreshold, address _oracleAddress) {
     premium = _premium;
     payout = _payout;
     indexThreshold = _indexThreshold;
@@ -33,15 +37,38 @@ contract DroughtInsurance {
     creator = msg.sender;
   }
 
+    // Setting Premium in case of risk increase/decrease (only SC owner should be able to do it)
+  function setPremium(uint newPremium) public {
+    require(msg.sender == creator, "Only smart contract owner can set premium.");
+    premium = newPremium;
+  }
+
+  // Setting Payout in case of risk increase/decrease (only SC owner should be able to do it)
+  function setPayout(uint newPayout) public {
+    require(msg.sender == creator, "Only smart contract owner can set payout.");
+    payout = newPayout;
+  }
   // farmer registration, adds farmer structure to mapping with claimable amount (aka obligation)
-  function _register(string _firstName, string _lastName, uint _region) internal {
-    farmerToObligation[Farmer(_firstName, _lastName, _region, msg.sender)] = 0;
+  function register(string memory _firstName, string memory _lastName, uint _region) public {
+    newFarmer = Farmer(_firstName, _lastName, _region, msg.sender);
+    farmerToObligation[msg.sender] = 0;
+  }
+
+  // Creating the function to buy the insurance
+  // There should be a time constraint: only purchasable the year before
+  function buyInsurance() public payable {
+    require(msg.value == premium, "Incorrect premium amount.");
+    farmerToObligation[msg.sender] = payout; // payout == claimable amount (aka obligation)
   }
 
   // Creating the function to check if a drought has occurred
   // This function is absolute shit. Please work on this.
-  function checkDrought() public view returns(bool) {
-    uint index = oracle.getIndex();
+  function checkDrought(uint region) public returns(bool) {
+    if (region == 1) {
+        index = -1;
+    } else {
+        index = 1;
+    }
     if (index < indexThreshold) {
       return true;
     } else {
@@ -49,35 +76,17 @@ contract DroughtInsurance {
     }
   }
 
-  // Creating the function to buy the insurance
-  // There should be a time constraint: only purchasble the year before
-  function buyInsurance() public payable {
-    require(msg.value == premium, "Incorrect premium amount.");
-    farmerToObligation[msg.sender] = payout; // payout == claimable amount (aka obligation)
-  }
-
-  // Setting Premium in case of risk increase/decrease (only SC owner should be able to do it)
-  function setPremium(uint newPremium) public {
-    require(msg.sender == creator, "Only smart contract owner can set premium.");
-    premium = newPremium;
-  }
-  
-  // Setting Payout in case of risk increase/decrease (only SC owner should be able to do it)
-  function setPayout(uint newPayout) public {
-    require(msg.sender == creator, "Only smart contract owner can set payout.");
-    payout = newPayout;
-  }
-
   // Claim
-  function claim(uint amount) public {
-    require(obligationToFarmer[msg.sender] >= amount, "Your claimable amount is too low.");
+  // I believe the claimer should pay the oracle fees, in order to avoid excessive claiming and subsequent
+  function claim(uint amount, uint region) public {
+    require(farmerToObligation[msg.sender] >= amount, "Your claimable amount is too low.");
     // Checking if a drought has occurred
-    bool isDrought = checkDrought();
+    bool isDrought = checkDrought(region);
 
     // Paying out the insurance if a drought has occurred
     if (isDrought) {
       payable(msg.sender).transfer(amount); // send claimed amount
-      obligationToFarmer[msg.sender] -= amount; // reduce obligation by amount claimed
+      farmerToObligation[msg.sender] -= amount; // reduce obligation by amount claimed
     }
   }
 }
