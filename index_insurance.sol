@@ -8,18 +8,19 @@ pragma solidity ^0.8.0;
 contract DroughtInsurance {
 
   // Defining the variables
-  uint public premium; // in wei ??
-  uint public payout; // in wei ?? // change variable name to more comprehensible one
-  int public indexThreshold;
+  uint public premium; // Premium amount in wei (1 ether = 10^18 wei)
+  uint public payout; // Payout amount in wei
+  int public indexThreshold; // The threshold index value for drought
   int public index;
   address public oracle; // create simple oracle with settable index data for different regions
-  address public creator;
-  Farmer public newFarmer;
+  address public creator; // The address of the contract creator
+  Farmer public newFarmer; // A new Farmer struct instance
 
+  // Farmer struct to store farmer's information
   struct Farmer {
     string firstName;
     string lastName;
-    uint region;
+    uint region; // The region code of the farmer
     address farmerAccount;
     }
 
