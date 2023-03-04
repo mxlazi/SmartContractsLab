@@ -90,7 +90,6 @@ contract DroughtInsurance {
   }
 
   // Creating the function to check if a drought has occurred
-  // This function is absolute shit. Please work on this.
   function checkDrought(uint region) public returns(bool) {
     if (region == 1) {
         index = -1;
