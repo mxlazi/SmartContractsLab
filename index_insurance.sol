@@ -15,6 +15,11 @@ contract DroughtInsurance {
   address public oracle; // create simple oracle with settable index data for different regions
   address public creator; // The address of the contract creator
   Farmer public newFarmer; // A new Farmer struct instance
+  uint public timeOfYearBeginning;
+  uint public secondsPerYear;
+  uint public secondsSinceYearBeginning;
+  address[] currentInsured; // array of current Insured for iteration over mapping
+  address[] futureInsured;  // array of future Insured for iteration over mapping
 
   // Farmer struct to store farmer's information
   struct Farmer {
@@ -36,6 +41,8 @@ contract DroughtInsurance {
     indexThreshold = _indexThreshold;
     oracle = _oracleAddress;
     creator = msg.sender;
+    secondsPerYear = 31536000;
+    timeOfYearBeginning = block.timestamp - (block.timestamp % secondsPerYear);
   }
 
     // Setting Premium in case of risk increase/decrease (only SC owner should be able to do it)
@@ -55,11 +62,31 @@ contract DroughtInsurance {
     farmerToObligation[msg.sender] = 0;
   }
 
-  // Creating the function to buy the insurance
-  // There should be a time constraint: only purchasable the year before
+  // this function checks and enforces the time constraints and will be called anytime another function is called
+  function resetYear() public {
+    secondsSinceYearBeginning = block.timestamp - timeOfYearBeginning;
+    if (secondsSinceYearBeginning > secondsPerYear) {
+      secondsSinceYearBeginning += secondsPerYear;
+      for (uint i=0; i < currentInsured.length ; i++){
+        farmerToObligation[currentInsured[i]] = 0;
+      }
+      delete currentInsured;
+      for (uint i=0; i < futureInsured.length ; i++) {
+        farmerToObligation[futureInsured[i]] = farmerToFutureObligation[i];
+        farmerToFutureObligation[i] = 0;
+        currentInsured.push(farmerToFutureObligation[i]);
+      }
+      delete futureInsured;
+    }
+  }
+
+  // Creating the function to buy the insurance the year before
   function buyInsurance() public payable {
+    resetYear();
     require(msg.value == premium, "Incorrect premium amount.");
-    farmerToObligation[msg.sender] = payout; // payout == claimable amount (aka obligation)
+    require(farmerToFutureObligation[msg.sender] != 0, "You have already bought an insurance for next year.");
+    farmerToFutureObligation[msg.sender] = payout; // payout == claimable amount (aka obligation)
+    futureInsured.push(msg.sender);
   }
 
   // Creating the function to check if a drought has occurred
@@ -80,6 +107,7 @@ contract DroughtInsurance {
   // Claim
   // I believe the claimer should pay the oracle fees, in order to avoid excessive claiming and subsequent
   function claim(uint amount, uint region) public {
+    resetYear();
     require(farmerToObligation[msg.sender] >= amount, "Your claimable amount is too low.");
     // Checking if a drought has occurred
     bool isDrought = checkDrought(region);
